@@ -16,7 +16,9 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLogin = false;
+  bool _isAuthenticating = false;
   String _email = '';
+  String _username = '';
   String _password = '';
 
   void _submit() async {
@@ -25,6 +27,9 @@ class _AuthScreenState extends State<AuthScreen> {
     }
 
     _formKey.currentState!.save();
+    setState(() {
+      _isAuthenticating = true;
+    });
 
     try {
       if (_isLogin) {
@@ -38,13 +43,14 @@ class _AuthScreenState extends State<AuthScreen> {
           password: _password,
         );
 
+        setState(() {
+          _isAuthenticating = false;
+        });
+
         await FirebaseFirestore.instance
             .collection('users')
             .doc(userCred.user!.uid)
-            .set({
-              'username': 'to be done',
-              'email': _email
-            });
+            .set({'username': _username, 'email': _email});
       }
     } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(context).clearSnackBars();
@@ -102,12 +108,28 @@ class _AuthScreenState extends State<AuthScreen> {
                               _email = newValue!;
                             },
                           ),
+                          if (!_isLogin)
+                            TextFormField(
+                              decoration: InputDecoration(
+                                labelText: 'Username',
+                              ),
+                              enableSuggestions: false,
+                              validator: (value) {
+                                if (value == null || value.trim().length <= 4) {
+                                  return 'Invalid username (at least 4 characters)';
+                                }
+                                return null;
+                              },
+                              onSaved: (newValue) {
+                                _username = newValue!;
+                              },
+                            ),
                           TextFormField(
-                            decoration: InputDecoration(labelText: 'Password7'),
+                            decoration: InputDecoration(labelText: 'Password'),
                             obscureText: true,
                             validator: (value) {
                               if (value == null || value.trim().length <= 6) {
-                                return 'Invalid password';
+                                return 'Invalid password (at least 6 characters)';
                               }
                               return null;
                             },
@@ -116,16 +138,18 @@ class _AuthScreenState extends State<AuthScreen> {
                             },
                           ),
                           SizedBox(height: 12),
-                          ElevatedButton(
-                            onPressed: _submit,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  Theme.of(
-                                    context,
-                                  ).colorScheme.primaryContainer,
-                            ),
-                            child: Text(_isLogin ? 'Login' : 'Signup'),
-                          ),
+                          _isAuthenticating
+                              ? CircularProgressIndicator()
+                              : ElevatedButton(
+                                onPressed: _submit,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      Theme.of(
+                                        context,
+                                      ).colorScheme.primaryContainer,
+                                ),
+                                child: Text(_isLogin ? 'Login' : 'Signup'),
+                              ),
                           TextButton(
                             onPressed: () {
                               setState(() {
